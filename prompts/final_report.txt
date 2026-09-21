@@ -1,0 +1,113 @@
+# SOURCE: HostMachine/llm_pipeline/llm_stage.py:327-449 (constant _FINAL_PROMPT)
+#
+# Used for: the single final call that produces the report actually
+# written to report.<backend>.json. Used only when the trace needed
+# more than one chunk (i.e. NOT the direct_single_pass.txt strategy).
+#
+# Prompt built at llm_stage.py:969-974, inside _final_report()
+# (llm_stage.py:917-1002), called via call_pro (:976). If this call
+# raises, the pipeline falls back to a hardcoded error-state report
+# (_make_error_report(), :573-600) rather than a different prompt.
+#
+# Placeholders and what fills them:
+#   {process_tree}  self._process_tree
+#   {manifest}      self._manifest
+#   {patterns}      self._patterns_summary -- truncated patterns.json
+#                   (or patterns.blind.json), context_utils.truncate_patterns()
+#   {artifacts}     json.dumps(artifacts) -- the fully reduced list of
+#                   leaf/reduce artifacts (after all reduce layers,
+#                   including any emergency reduce passes)
+#
+# Sent with system.txt / system_blind_full.txt as the system role.
+# ----------------------------------------------------------------------
+
+You are producing the final analysis report from the analysis artifacts of a sandboxed execution. The sample may be benign, suspicious, or malicious.
+
+=== CONTEXT ===
+
+Process tree:
+{process_tree}
+
+Trace manifest:
+{manifest}
+
+Heuristic patterns detected:
+{patterns}
+
+=== INSTRUCTIONS ===
+
+Produce a comprehensive, professional analysis report in JSON format. This report will be formatted for executive and technical audiences.
+
+CRITICAL RULES FOR VERDICT AND SEVERITY:
+- If the sample is a normal system command (find, ls, grep, cat, df, top, ps, etc.) performing its expected function with no network C2, no persistence, no file encryption, and no data exfiltration, the verdict MUST be "benign" and severity MUST be 0.
+- Normal file reads, directory listings, and system discovery by standard tools are NOT malicious. Do not assign MITRE ATT&CK techniques to normal tool behavior.
+- Educational/proof-of-concept malware running against localhost (127.0.0.1) with simulated C2 but NO destructive payload should score 7-8. If it actually encrypts/deletes files or exfiltrates data (even in sandbox), score 8-9 — the destructive capability is proven.
+- Reserve severity 10 for real-world-ready malware with external C2, confirmed destructive payload, and no obvious educational markers.
+- DATA EXFILTRATION always scores >= 7, even when small amounts of data are sent and even when the destination is localhost. Reading sensitive material (credentials, keys, /proc/net/, /etc/shadow) and transmitting it over any network socket is inherently malicious. Score higher (8-9) when the destination is a non-loopback IP, data volume is large, or the channel uses encoding/obfuscation (base64 payloads, DNS subdomains, HTTP query strings).
+
+Requirements:
+1. CLASSIFICATION: "malicious", "suspicious", or "benign" — this is a strict machine-readable label used for computing precision/recall metrics. It must always be exactly one of these three lowercase strings.
+2. VERDICT: same value as classification. This field is displayed in the report header.
+3. SEVERITY: 0-10 scale:
+   - 0: Benign — normal program behavior, no security concern
+   - 1-3: Low — minor anomalies, could be legitimate
+   - 4-6: Medium — suspicious patterns, limited evidence of malicious intent
+   - 7-8: High — active exploitation, data theft, persistence, C2, exfiltration
+   - 9: Very High — multi-stage attack with significant impact or confirmed exfiltration to external C2
+   - 10: Critical — confirmed destructive payload with real-world impact
+4. EXECUTIVE SUMMARY: 2-3 paragraphs for non-technical leadership. If benign, briefly state what the program does and that no threat was found. Include: what was observed, what is the risk (if any), what to do about it.
+5. KILL CHAIN: Map the attack flow ONLY if the verdict is suspicious or malicious. For benign samples, describe the normal execution flow instead.
+6. MITRE ATT&CK: Only include techniques for genuinely malicious actions. Do not map benign behavior to attack techniques.
+7. EXFILTRATION CHECK: Before finalizing the verdict, explicitly verify: did the process read any sensitive file AND establish any network connection? If yes, this is at minimum SUSPICIOUS (T1041). Check io_burst/write_burst total_bytes on socket FDs, HTTP query-string content in network writes, and the network_data_exfil / dns_exfiltration patterns in the heuristic patterns section.
+8. IOCs: Only for suspicious or malicious verdicts. Empty for benign.
+9. TIMELINE: Key events in chronological order with timestamps.
+10. EVIDENCE GAPS: What couldn't we observe?
+11. RECOMMENDATIONS: Only for suspicious or malicious verdicts. For benign samples, state that no action is required.
+
+JSON schema:
+{{
+  "title": "short descriptive title",
+  "classification": "malicious|suspicious|benign",
+  "verdict": "malicious|suspicious|benign",
+  "severity": "integer 0-10",
+  "severity_justification": "why this severity score",
+  "confidence_level": "high|medium|low",
+  "tlp_recommendation": "TLP:CLEAR|TLP:GREEN|TLP:AMBER|TLP:RED",
+  "executive_summary": "2-3 paragraph executive summary for leadership",
+  "kill_chain_analysis": "multi-paragraph analysis mapping observed behavior to kill chain phases in chronological order (or normal execution flow if benign)",
+  "behavior_description": "detailed technical description of observed behavior",
+  "process_flow": "description of the process tree, parent-child relationships, and execution flow",
+  "mitre_techniques": [
+    {{
+      "id": "TXXXX.XXX",
+      "name": "Technique Name",
+      "tactic": "Tactic Name",
+      "evidence": "specific evidence from the trace (cite seq numbers)"
+    }}
+  ],
+  "timeline": [
+    {{
+      "t_ms": 0.0,
+      "event": "description of what happened at this point"
+    }}
+  ],
+  "iocs": {{
+    "paths": ["file paths — empty list if benign"],
+    "ips": ["IP addresses — empty list if benign"],
+    "domains": ["domains — empty list if benign"],
+    "commands": ["command lines — empty list if benign"],
+    "hashes": ["file hashes if observed"]
+  }},
+  "errors_and_gaps": "description of failed operations, dropped events, and evidence gaps that limit the analysis",
+  "recommendations": [
+    {{
+      "priority": "critical|high|medium|low",
+      "action": "specific actionable recommendation",
+      "rationale": "why this matters"
+    }}
+  ]
+}}
+
+=== ARTIFACTS ===
+
+{artifacts}

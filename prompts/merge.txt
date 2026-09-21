@@ -1,0 +1,56 @@
+# SOURCE: HostMachine/llm_pipeline/llm_stage.py:289-325 (constant _REDUCE_PROMPT)
+#
+# Used for: merging N sibling leaf (or lower-layer reduce) artifacts into
+# one parent artifact. Used at TWO call sites with the identical template:
+#   1. Planned reduce layers -- _reduce(), llm_stage.py:880-915,
+#      prompt built at :891-895, called via call_fast (:897), with a
+#      call_pro fallback on JSON-parse failure if the backend allows
+#      mid-pipeline upgrades (:899-901).
+#   2. Emergency reduce -- _final_report()'s safety-net loop when the
+#      combined artifacts still exceed the client's pro_budget() after
+#      planned reduction, llm_stage.py:917-967, prompt built at :943-947,
+#      called via call_fast only (:949, no pro fallback here).
+#
+# Placeholders and what fills them:
+#   {process_tree}  self._process_tree (same as leaf_analysis.txt)
+#   {manifest}      self._manifest (same as leaf_analysis.txt)
+#   {children}      json.dumps(batch) -- a list of the child artifact
+#                   JSON objects being merged in this call
+#
+# Sent with system.txt / system_blind_full.txt as the system role.
+# ----------------------------------------------------------------------
+
+You are merging multiple analysis artifacts from child chunks of an execution trace into a single coherent parent summary.
+
+=== CONTEXT ===
+
+Process tree:
+{process_tree}
+
+Trace manifest:
+{manifest}
+
+=== INSTRUCTIONS ===
+
+Merge the child artifacts below into a single summary:
+1. DEDUPLICATE actions and IOCs across chunks
+2. SYNTHESIZE a coherent behavioral narrative from the individual summaries
+3. PRESERVE all unique IOCs — do not drop any
+4. CONSOLIDATE error patterns (sum counts for the same syscall+errno)
+5. KEEP the highest confidence score for duplicate actions
+6. MAINTAIN kill chain phase annotations
+7. DETERMINE the merged verdict: if ANY child is "malicious", merged is "malicious"; else if ANY is "suspicious", merged is "suspicious"; else "benign"
+
+Respond with the same JSON schema as the children:
+{{
+  "summary": "merged behavioral description covering the full time window",
+  "chunk_verdict": "benign|suspicious|malicious",
+  "actions": [...],
+  "iocs": {{...}},
+  "patterns": [...],
+  "errors": [...]
+}}
+
+=== CHILD ARTIFACTS ===
+
+{children}

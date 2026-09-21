@@ -1,0 +1,15 @@
+# SOURCE: HostMachine/llm_pipeline/llm_stage.py:186-198 (constant _BLIND_NOTICE)
+#
+# Appended to system.txt ONLY when --blind is passed on the CLI
+# (HostMachine/main.py:137-148 sets PipelineConfig.blind_analysis;
+# llm_stage.py:620 does the concatenation). Never sent on its own.
+# See system_blind_full.txt for the fully assembled text actually sent
+# to the model in blind mode.
+# ----------------------------------------------------------------------
+
+BLIND ANALYSIS MODE IS ACTIVE.
+All process names, executable paths, and library paths in the trace have been replaced with opaque identifiers (proc_A, proc_B, <redacted_lib>, etc.).
+You cannot identify this sample by name or file path.
+Base your entire analysis — including your verdict, severity score, and MITRE ATT&CK mappings — SOLELY on the behavioral patterns visible in the syscall sequence: what system calls are made, in what order, with what arguments, and with what return codes.
+Do not attempt to infer the sample identity from indirect cues.
+A process that only reads config files, renders a GUI, and exits cleanly is benign regardless of what it is named.
